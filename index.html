@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<title>贪吃的小兔</title>
+		<link rel="shortcut icon" href="img/Rabbit.ico" />
+		<style type="text/css">
+			body {
+				background-color: #eee;
+			}
+			
+			#myCanvas {
+				display: block;
+				margin: auto;
+			}
+			
+			img {
+				display: none;
+			}
+		</style>
+		<script type="text/javascript">
+			// 画笔
+			var pen;
+			// 背景图片
+			var bg;
+			// 背景移动范围
+			var bgMoveRand = 0;
+			// 背景移动速度 (单位：ms)
+			var bgMoveSpeed = 30;
+			// 画布对象
+			var myCanvas = {
+				canvasW: 320, // 画布宽
+				canvasH: 500 // 画布高
+			};
+			// 操作者对象
+			var player = {
+				playerX: 0, // 操作者横坐标
+				playerY: 0, // 操作者纵坐标
+				playerW: 60, // 操作者宽
+				playerH: 60, // 操作者高
+				playerPic: "" // 操作者图片
+			};
+			// 鼠标是否按下
+			var isDown = false;
+			// 食物对象
+			var food = {
+				foodW: 50, // 食物宽
+				foodH: 50, // 食物高
+				food1: "", //五仁月饼
+				food2: "" //普通月饼
+			};
+			// 产生食物速度 (单位：ms)
+			var aFs = 350;
+			// 五仁月饼概率 eFs/100
+			var eFs = 30;
+			// 月饼下降速度
+			var fDs = 3;
+			// 分数
+			var score = 0;
+			// 食物数组
+			var fList = [];
+			// 向食物数组中添加食物
+			setInterval(function() {
+				fList.push({
+					// 随机产生一个在画布内的横坐标
+					foodX: Math.floor(Math.random() * (myCanvas.canvasW - food.foodW)),
+					foodY: 0, //食物纵坐标
+					// 随机产生食物类型,小于eFs为五仁月饼
+					foodType: Math.floor(Math.random() * 100)
+				});
+			}, aFs);
+			// 分数栏变化数组
+			var scList = [];
+			// 分数栏背景图片
+			var gbScore;
+			// 分数栏心
+			var gbHeart;
+			// 子弹数组
+			var bList = [];
+			// 子弹半径
+			var ballR = 3;
+			// 主定时器
+			var mainInterval;
+
+			// 窗体加载完成
+			window.onload = function() {
+				// 获得画布
+				var can = document.getElementById("myCanvas");
+				// 设置画笔
+				pen = can.getContext("2d");
+				// 获取背景图
+				bg = document.getElementById("bg");
+				// 初始化背景范围
+				bgMoveRand = -bg.height;
+				// 设置操作者
+				player.playerPic = document.getElementById("player");
+				// 初始化操作者位置
+				player.playerX = myCanvas.canvasW / 2;
+				player.playerY = myCanvas.canvasH - player.playerH / 2;
+				// 初始化食物
+				food.food1 = document.getElementById("food1");
+				food.food2 = document.getElementById("food2");
+				// 初始化分数栏
+				gbScore = document.getElementById("score");
+				gbHeart = document.getElementById("heart");
+				// 初始化子弹图片
+				ball.ballPic = document.getElementById("ball");
+				// 绑定鼠标按下事件
+				can.onmousedown = function(e) {
+					// 判断是否点击在操作者身上
+					if (isClickOnPlayer(e)) {
+						isDown = true;
+					}
+				};
+				// 绑定鼠标移动事件
+				can.onmousemove = function(e) {
+					if (isDown) {
+						if (e.offsetX < player.playerW / 2) {
+							// 保证左边不越界
+							player.playerX = player.playerW / 2;
+						} else if (e.offsetX > myCanvas.canvasW - player.playerW / 2) {
+							// 保证右边不越界
+							player.playerX = myCanvas.canvasW - player.playerW / 2;
+						} else {
+							player.playerX = e.offsetX;
+						}
+
+						if (e.offsetY < player.playerH / 2) {
+							// 保证上边界不越界
+							player.playerY = player.playerH / 2;
+						} else if (e.offsetY > myCanvas.canvasH - player.playerH / 2) {
+							// 保证下边界不越界
+							player.playerY = myCanvas.canvasH - player.playerH / 2;
+						} else {
+							player.playerY = e.offsetY;
+						}
+					}
+				};
+				// 绑定鼠标抬起事件
+				can.onmouseup = function(e) {
+					isDown = false;
+				};
+				// 绑定键盘时间
+				document.onkeydown = function(event) {
+					var e = event || window.event || arguments.callee.caller.arguments[0];
+					if (e && e.keyCode == 32) { // 按空格
+						bList.push({
+							// 子弹横坐标
+							ballX: player.playerX,
+							// 子弹纵坐标
+							ballY: player.playerY - player.playerH / 2
+						});
+					}
+					if (e && e.keyCode == 82) {
+						location.reload();
+					}
+				};
+				// 设置定时器
+				mainInterval = setInterval(function() {
+					// 背景移动
+					BgMove();
+					// 画操作者
+					AddPlayer();
+					// 画月饼
+					CreateFood();
+					// 画子弹
+					DramBall();
+					// 画分数栏
+					ShowScore();
+				}, bgMoveSpeed);
+			}
+
+			// 背景移动
+			function BgMove() {
+				// 无缝连接实现器
+				if (bgMoveRand >= 0)
+					bgMoveRand = -bg.height;
+				// 画背景
+				pen.drawImage(bg, 0, bgMoveRand++);
+				pen.drawImage(bg, 0, bgMoveRand + bg.height - 2)
+			}
+			// 画操作者
+			function AddPlayer() {
+				pen.drawImage(player.playerPic, player.playerX - player.playerW / 2, player.playerY - (player.playerH / 2),
+					player.playerW, player.playerH);
+			}
+
+			// 画月饼
+			function CreateFood() {
+				for (var index = 0; index < fList.length; index++) {
+					if (!CheckFP(index)) {
+						if (fList[index].foodY > 500) {
+							if (fList[index].foodType > eFs) {
+								score = score > 0 ? score - 1 : 0;
+								// 将减分添加到数组
+								scList.push({
+									scType: 0, // 1:加，0:减
+									scY: 127
+								});
+							}
+							fList.splice(index, 1);
+						} else {
+							// 画月饼
+							pen.drawImage(fList[index].foodType > eFs ? food.food2 : food.food1, fList[index].foodX,
+								fList[index].foodY > 100 ? fList[index].foodY += (fDs * 2) : fList[index].foodY += fDs, food.foodW, food.foodH);
+						}
+					}
+				}
+			}
+			// 画分数栏
+			function ShowScore() {
+				// 画分数栏背景
+				pen.drawImage(gbScore, myCanvas.canvasW - 100, 100, 100, 40);
+				pen.drawImage(gbHeart, myCanvas.canvasW - 100, 98, 30, 40);
+
+				// 画分数
+				pen.beginPath();
+				pen.fillStyle = "white";
+				pen.font = "1.5em 黑体";
+				pen.fillText(score, myCanvas.canvasW - 55, 127);
+
+				for (var index = 0; index < scList.length; index++) {
+					if (scList[index].scY <= 0) {
+						scList.splice(index, 1);
+					} else {
+						pen.beginPath();
+						pen.fillStyle = "red";
+						pen.font = "1.5em 黑体";
+						pen.fillText(scList[index].scType == 0 ? "-1" : "+1", myCanvas.canvasW - 40, scList[index].scY -= 5);
+					}
+				}
+			}
+			// 画子弹
+			function DramBall() {
+				for (var index = 0; index < bList.length; index++) {
+					CheckBF(index);
+					if (bList[index].ballY <= 0) {
+						// 去掉
+						bList.splice(index, 1);
+					} else {
+						pen.beginPath();
+						pen.fillStyle = "yellow";
+						pen.arc(bList[index].ballX, bList[index].ballY -= 10, ballR, 0, 2 * Math.PI);
+						pen.fill();
+					}
+				}
+			}
+			// 检测操作者和食物的碰撞
+			function CheckFP(index) {
+				if (isCollsionWithRectToRect(fList[index].foodX, fList[index].foodY, food.foodW, food.foodH,
+						player.playerX - player.playerW / 2, player.playerY - (player.playerH / 2),
+						player.playerW, player.playerH)) {
+					if (fList[index].foodType > eFs) {
+						score++;
+						// 将减分添加到数组
+						scList.push({
+							scType: 1, // 1:加，0:减
+							scY: 127
+						});
+						fList.splice(index, 1);
+						return true;
+					} else {
+						fList.splice(0, fList.length);
+						clearInterval(mainInterval);
+						GameOver();
+					}
+				}
+				return false;
+			}
+			// 检测子弹和食物的碰撞
+			function CheckBF(index) {
+				for (var f = 0; f < fList.length; f++) {
+					if (isCollsionWithRectToArc(fList[f].foodX, fList[f].foodY, food.foodW, food.foodH,
+							bList[index].ballX, bList[index].ballY, ballR)) {
+						// 判断食物类型
+						if (fList[f].foodType > eFs) {
+							// 减分
+							score = score > 0 ? score - 1 : 0;
+							// 将减分添加到数组
+							scList.push({
+								scType: 0, // 1:加，0:减
+								scY: 127
+							});
+						}
+						// 消失
+						fList.splice(f, 1);
+						bList.splice(index, 1);
+						return;
+					}
+				}
+			}
+
+			// 检查矩形与矩形碰撞算法  x，y左顶点坐标
+			function isCollsionWithRectToRect(x1, y1, w1, h1, x2, y2, w2, h2) {
+				if ((x1 >= x2 - w1 && x1 <= x2 + w2) && (y1 <= y2 + h2 && y1 >= y2 - h1))
+					return true;
+				return false;
+			}
+
+			// 检测矩形与圆碰撞
+			function isCollsionWithRectToArc(rx, ry, rw, rh, ax, ay, ar) {
+				if ((ax >= rx - ar && ax <= rx + rw + ar) && (ay >= ry - ar && ay <= ry + ar + rh))
+					return true;
+				return false;
+			}
+
+			// 判断点击是否在操作者身上
+			function isClickOnPlayer(e) {
+				// 判断是否点击在操作者身上
+				if ((e.offsetX > player.playerX - player.playerW / 2 && e.offsetX < player.playerX + (player.playerW / 2)) &&
+					(e.offsetY > player.playerY - player.playerH / 2 && e.offsetY < player.playerY + (player.playerH / 2))) {
+					return true;
+				}
+				return false;
+			}
+
+			// 游戏结束提示
+			function GameOver() {
+				var goText = ["游戏结束!", "得分：" + score, "按 R 继续."];
+				var goFont = 1.5;
+				var goLineHight = 1;
+				for (var item = 0; item < goText.length; item++) {
+					pen.beginPath();
+					pen.fillStyle = "red";
+					pen.font = goFont + "em 黑体";
+					pen.fillText(goText[item], (myCanvas.canvasW / 2 - goText.length * goFont * 16), myCanvas.canvasH / 2 - goLineHight * (3 - item) * 16 - goFont * (3 - item) * 16)
+				}
+			}
+		</script>
+	</head>
+
+	<body>
+		<div id="can">
+			<canvas id="myCanvas" width="320" height="500">
+				您的浏览器暂不支持Canvas,请升级或使用其他浏览器!
+			</canvas>
+		</div>
+		<img id="bg" src="img/bg.jpg" alt="" />
+		<img id="food1" src="img/food1.png" alt="" />
+		<img id="food2" src="img/food2.png" alt="" />
+		<img id="heart" src="img/heart.png" alt="" />
+		<img id="player" src="img/player.png" alt="" />
+		<img id="score" src="img/scorebg.png" alt="" />
+		<img id="ball" src="img/ball.png" alt="" />
+	</body>
+
+</html>
